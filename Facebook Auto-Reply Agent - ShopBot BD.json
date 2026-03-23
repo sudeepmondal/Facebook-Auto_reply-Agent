@@ -1,0 +1,234 @@
+{
+  "name": "Facebook Auto-Reply Agent - ShopBot BD",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "facebook-message",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "1. Receive from Server",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        0
+      ],
+      "id": "7e7d38fa-8f26-4239-a286-ee141d04ee9c",
+      "webhookId": "8d2b0286-9485-47ff-acec-e52061a45d18"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug: সব data দেখো\nconst rawData = $input.first().json;\nconsole.log('Raw input:', JSON.stringify(rawData));\n\n// n8n webhook এ data আসে body তে অথবা সরাসরি\nlet senderId    = '';\nlet messageText = '';\n\n// Try direct\nif (rawData.senderId) {\n  senderId    = rawData.senderId;\n  messageText = rawData.messageText;\n}\n// Try body wrapper\nelse if (rawData.body && rawData.body.senderId) {\n  senderId    = rawData.body.senderId;\n  messageText = rawData.body.messageText;\n}\n\nconsole.log(`senderId: ${senderId}`);\nconsole.log(`messageText: ${messageText}`);\n\nif (!senderId || !messageText) {\n  // Return with whatever we have for debugging\n  return [{\n    json: {\n      senderId:    senderId    || 'NO_ID',\n      messageText: messageText || 'NO_TEXT',\n      rawData:     rawData\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    senderId,\n    messageText\n  }\n}];"
+      },
+      "name": "2. Extract Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        0
+      ],
+      "id": "43363e12-a337-4e5b-b56a-a5c29ee82769"
+    },
+    {
+      "parameters": {
+        "jsCode": "const faqs = [\n  {\n    q: 'delivery কত দিন / ডেলিভারি / কখন পাবো / shipping',\n    a: 'ডেলিভারি সময় ২-৩ কার্যদিবস। ঢাকার মধ্যে ১-২ দিন।'\n  },\n  {\n    q: 'payment / পেমেন্ট / টাকা / বিকাশ / নগদ / COD / cash',\n    a: 'আমরা Cash on Delivery (COD) গ্রহণ করি। পণ্য পেয়ে টাকা দিন।'\n  },\n  {\n    q: 'কোথায় deliver / location / সারা বাংলাদেশ / জেলা / বাইরে',\n    a: 'সারা বাংলাদেশে ডেলিভারি। ঢাকা, চট্টগ্রাম সহ সকল জেলায় সার্ভিস।'\n  },\n  {\n    q: 'return / ফেরত / রিপ্লেসমেন্ট / খারাপ / নষ্ট / সমস্যা',\n    a: 'পণ্য পাওয়ার ৩ দিনের মধ্যে সমস্যা হলে বিনামূল্যে রিপ্লেসমেন্ট।'\n  },\n  {\n    q: 'quality / কোয়ালিটি / মান / আসল / original / নকল',\n    a: 'সব পণ্য Premium Export Quality। ১০০% অরিজিনাল গ্যারান্টি।'\n  }\n];\n\nconst faqText = faqs\n  .map((f, i) => `FAQ ${i+1}:\\nপ্রশ্ন: ${f.q}\\nউত্তর: ${f.a}`)\n  .join('\\n\\n');\n\nreturn [{\n  json: {\n    senderId:    $json.senderId,\n    messageText: $json.messageText,\n    faqContext:  faqText\n  }\n}];"
+      },
+      "name": "4. Build FAQ Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        32
+      ],
+      "id": "b95db1b0-5834-41ef-912b-a8b1016b4f15"
+    },
+    {
+      "parameters": {
+        "jsCode": "const senderId    = $json.senderId;\nconst messageText = $json.messageText;\nconst faqContext  = $json.faqContext;\n\nconst systemPrompt = `তুমি ShopBot BD-এর বিনয়ী কাস্টমার সার্ভিস প্রতিনিধি।\nBangla ও English বুঝো, সবসময় বাংলায় উত্তর দাও।\n\nআমাদের FAQ:\n${faqContext}\n\nনিয়ম:\n১. সবসময় বাংলায় উত্তর দাও।\n২. উত্তর সংক্ষিপ্ত রাখো, ২-৩ লাইন।\n৩. বিনয়ী ও আন্তরিক ভাষায় কথা বলো।\n৪. FAQ মিললে সেই উত্তর দাও।\n৫. অজানা হলে বলো: আপনার প্রশ্নটি বুঝতে পারিনি, একটু বিস্তারিত বলবেন?`;\n\nconst payload = {\n  model: 'llama-3.3-70b-versatile',\n  max_tokens: 300,\n  temperature: 0.7,\n  messages: [\n    { role: 'system', content: systemPrompt },\n    { role: 'user',   content: messageText }\n  ]\n};\n\nreturn [{\n  json: {\n    senderId,\n    messageText,\n    groqPayload: JSON.stringify(payload)\n  }\n}];"
+      },
+      "name": "5. Build Groq Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        0
+      ],
+      "id": "07c05286-7d2f-4f13-a0df-377a9a1d099c"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer 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"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.groqPayload }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "name": "6. Call Groq API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        336,
+        0
+      ],
+      "id": "aad1a72d-e599-41e9-88f8-fafbd46d9bac"
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqResponse = $input.first().json;\nconst prevData = $('5. Build Groq Payload').first().json;\n\nconst senderId = String(prevData.senderId).trim();\n\nlet replyText = 'দুঃখিত, এই মুহূর্তে উত্তর দিতে পারছি না। একটু পরে আবার চেষ্টা করুন। 🙏';\n\nif (\n  groqResponse.choices &&\n  groqResponse.choices[0] &&\n  groqResponse.choices[0].message &&\n  groqResponse.choices[0].message.content\n) {\n  replyText = groqResponse.choices[0].message.content.trim();\n}\n\nconsole.log(`senderId: ${senderId}`);\nconsole.log(`replyText: ${replyText}`);\n\nreturn [{\n  json: {\n    senderId,\n    replyText\n  }\n}];"
+      },
+      "name": "7. Extract Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        32
+      ],
+      "id": "8b7b7dd4-d6c6-42ed-9fa7-35b284ac461b"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/me/messages?access_token=EAAUIJVgt7zIBRLSnRVQoY3zhJ9xLzYc491IVSF4dJYQFPaVqUoITFGNOfMmx9oUVWo4X0uc9AaMyxyOObZCQAkw0nVFCa6N6hLl6hdeA94bExZCKFOnWpCvAgubee9f4wXjDFPMUHPloRBwu0H5Dh8oiM9KRZBFBfyRGqxgKXLmt4Op62DDxkXhMdONVfEpvkiJ6GrVChnZCZCQZBEsNOQ6HsgznsohCSE4KGZAO3paltf6",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\"recipient\":{\"id\":\"{{ $json.senderId }}\"},\"message\":{\"text\":\"{{ $json.replyText }}\"},\"messaging_type\":\"RESPONSE\"}\n",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "8. Send to Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        880,
+        0
+      ],
+      "id": "307f47a5-e6dd-4b88-a305-0cbd50abbc81"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date().toLocaleString('en-BD', { timeZone: 'Asia/Dhaka' });\nconst senderId  = $('7. Extract Reply').first().json.senderId;\nconst replyText = $('7. Extract Reply').first().json.replyText;\n\nconsole.log(`[${now}] SUCCESS - Replied to: ${senderId}`);\nconsole.log(`Reply: ${replyText.substring(0, 100)}`);\n\nreturn [{\n  json: {\n    success: true,\n    timestamp: now,\n    senderId,\n    replyPreview: replyText.substring(0, 100)\n  }\n}];"
+      },
+      "name": "9. Logger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        32
+      ],
+      "id": "0bd9949c-3b31-4066-942b-319fb4792b07"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "1. Receive from Server": {
+      "main": [
+        [
+          {
+            "node": "2. Extract Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Extract Message": {
+      "main": [
+        [
+          {
+            "node": "4. Build FAQ Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Build FAQ Context": {
+      "main": [
+        [
+          {
+            "node": "5. Build Groq Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Build Groq Payload": {
+      "main": [
+        [
+          {
+            "node": "6. Call Groq API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Call Groq API": {
+      "main": [
+        [
+          {
+            "node": "7. Extract Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Extract Reply": {
+      "main": [
+        [
+          {
+            "node": "8. Send to Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Send to Facebook": {
+      "main": [
+        [
+          {
+            "node": "9. Logger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "23c5845d-d346-429f-b9de-1b30eb5f1c85",
+  "meta": {
+    "instanceId": "594119ed60d47f842c463e5f7c361f9f1042cfed41480eafc55a23cb16823c52"
+  },
+  "id": "mZGBF20Ds22e9bV8",
+  "tags": []
+}

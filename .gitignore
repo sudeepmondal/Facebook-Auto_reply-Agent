@@ -1,0 +1,14 @@
+# Secret files — never commit these!
+.env
+*.env
+.env.local
+
+# n8n local data
+.n8n/
+
+# Node modules
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

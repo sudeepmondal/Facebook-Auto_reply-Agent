@@ -7,7 +7,6 @@
 [![n8n](https://img.shields.io/badge/n8n-Workflow-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)](https://n8n.io)
 [![Groq](https://img.shields.io/badge/Groq-LLaMA_3.3-F55036?style=for-the-badge)](https://groq.com)
 [![Meta](https://img.shields.io/badge/Meta-Graph_API-0866FF?style=for-the-badge&logo=facebook&logoColor=white)](https://developers.facebook.com)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
 **Automatically replies to Facebook Page messages using AI — 100% FREE tools**
 
